@@ -27,41 +27,47 @@ classifiers = [
 python = "^3.6.1"
 
 poetry-core = "^1.0.0"
+
 numpy = "*"
 scipy = "*"
 pandas = ">=1"
 scikit-learn = ">=0.22"
 lightgbm = "^2.3"
+catboost = "*"
 optuna = "*"
-torch = "<1.9"
+torch = [
+    {version = "~1.7",  markers = "python_version <  '3.6.2'"},
+    {version = "~1.8", markers = "python_version >= '3.6.2'"}
+]
 holidays = "*"
 networkx = "*"
 cmaes = "*"
 log-calls = "*"
 pyyaml = "*"
-catboost = "*"
+tqdm = "*"
+joblib = "*"
+importlib-metadata = {version = "^1.0", python = "<3.8"}
 
 autowoe = ">=1.2"
 
-json2html = "*"
 jinja2 = "*"
+json2html = "*"
 seaborn = "*"
 
-transformers = ">=4"
-nltk = "*"
-gensim = ">=4"
-tqdm = "*"
-efficientnet-pytorch = "*"
-albumentations = ">=0.4.6"
-opencv-python = "*"
-joblib = "*"
-pywavelets = "*"
-scikit-image = "*"
-torchvision = "*"
+# NLP
+gensim = {version = ">=4", optional = true}
+nltk = {version = "*", optional = true}
+transformers = {version = ">=4", optional = true}
 
-webencodings = "*"
+# CV
+albumentations = {version = ">=0.4.6", optional = true}
+efficientnet-pytorch = {version = "*", optional = true}
+opencv-python = {version = "*", optional = true}
+pywavelets = {version = "*", optional = true}
+scikit-image = {version = "*", optional = true}
+torchvision = {version = "*", optional = true}
 
-importlib-metadata = {version = "^1.0", python = "<3.8"}
+# Report (pdf)
 weasyprint = {version = "^52.5", optional = true}
 cffi = {version = "^1.14.5", optional = true}
 
@@ -78,6 +84,19 @@ pandoc = "*"
 
 
 [tool.poetry.extras]
+cv = [
+    "albumentations",
+    "efficientnet-pytorch",
+    "opencv-python",
+    "pywavelets",
+    "scikit-image",
+    "torchvision"
+]
+nlp = [
+    "gensim",
+    "nltk",
+    "transformers"
+]
 pdf = ["weasyprint", "cffi"]
 
 
