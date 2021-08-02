@@ -82,6 +82,7 @@ nbsphinx-link = "*"
 sphinx-autodoc-typehints = "*"
 pandoc = "*"
 notebook = "*"
+mypy = "^0.910"
 
 
 [tool.poetry.extras]
@@ -98,7 +99,23 @@ nlp = [
     "nltk",
     "transformers"
 ]
-pdf = ["weasyprint", "cffi"]
+pdf = [
+    "cffi",
+    "weasyprint"
+]
+all = [
+    "albumentations",
+    "efficientnet-pytorch",
+    "opencv-python",
+    "pywavelets",
+    "scikit-image",
+    "torchvision",
+    "gensim",
+    "nltk",
+    "transformers",
+    "cffi",
+    "weasyprint"
+]
 
 
 [build-system]

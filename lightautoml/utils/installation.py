@@ -26,6 +26,6 @@ def __validate_extra_deps(extra_section: str) -> None:
             # Print warning
             logger.warning(
                 "'%s' extra dependecy package '%s' isn't installed. "\
-                "Look at README.md for installation instructions.",
+                "Look at README.md in repo 'LightAutoML' for installation instructions.",
                 extra_section, lib_name
             )

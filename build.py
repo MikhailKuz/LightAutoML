@@ -13,7 +13,7 @@ class LAMAController:
     """Class that provide installation of lama."""
     LAMA_VENV = './lama_venv'
     EXTRA_SECTIONS = ('nlp', 'cv')
-    EXTRA_FLAGS = (*('full', 'dev'), *EXTRA_SECTIONS)
+    EXTRA_FLAGS = (*('full', 'dev', 'all'), *EXTRA_SECTIONS)
 
     def __init__(self, debug: bool = False):
         self._debug = debug
@@ -75,12 +75,16 @@ class LAMAController:
     @property
     def poetry_install_flags(self) -> str:
         install_flags = []
+        need_dev_deps = 'dev' in self._args.extra or self._args.docs
 
-        if self._args.all or "full" in self._args.extra:
-            install_flags = ['-E {}'.format(e) for e in self.EXTRA_SECTIONS]
+        if self._args.all or 'full' in self._args.extra:
+            install_flags = ['-E all']
         else:
-            need_dev_deps = 'dev' in self._args.extra or self._args.docs
-            install_flags = ['-E {}'.format(e) for e in self._args.extra if e != 'dev']
+            if 'all' in self._args.extra:
+                install_flags = ['-E all']
+            else:
+                install_flags = ['-E {}'.format(e) for e in self._args.extra if not e in ['dev', 'all'] ]
+
             if not need_dev_deps:
                 install_flags.append('--no-dev')
 

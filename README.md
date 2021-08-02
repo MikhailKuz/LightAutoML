@@ -42,7 +42,7 @@ pip install -U lightautoml
 For installation NLP/CV part run:
 
 ```bash
-pip install lightautoml[EXTRA_PART]  # where EXTRA_PART := {nlp, cv}
+pip install lightautoml[EXTRA_PART]  # where EXTRA_PART := {nlp, cv, all}
 ```
 
 
