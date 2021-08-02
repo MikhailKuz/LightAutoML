@@ -1,5 +1,9 @@
 """AutoML presets for data with texts."""
 
+from lightautoml.utils.installation import __validate_extra_deps
+__validate_extra_deps('nlp')
+
+
 import os
 from typing import Optional, Sequence, TYPE_CHECKING
 
@@ -200,7 +204,7 @@ class TabularNLPAutoML(TabularAutoML):
         self.nn_params['num_workers'] = min(self.nn_params['num_workers'], cpu_cnt)
         self.nn_params['lang'] = self.nn_params['lang'] or self.text_params['lang']
         self.nn_params['bert_name'] = self.nn_params['bert_name'] or self.text_params['bert_model']
-        
+
         logger.info('Model language mode: {}'.format(self.nn_params['lang']))
 
         if isinstance(self.autonlp_params['transformer_params'], dict):
