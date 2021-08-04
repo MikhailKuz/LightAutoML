@@ -3,13 +3,28 @@
 from copy import copy
 from typing import List, Callable, Sequence, Optional, Any, Union
 
-import cv2
+try:
+    import cv2
+except:
+    import warnings
+    warnings.warn("'cv2' - package isn't installed")
+
 import numpy as np
 import torch
 import torch.nn as nn
-from albumentations import Compose, Normalize, Resize
-from albumentations.pytorch import ToTensorV2
-from efficientnet_pytorch import EfficientNet
+
+try:
+    from albumentations import Compose, Normalize, Resize
+    from albumentations.pytorch import ToTensorV2
+except:
+    import warnings
+    warnings.warn("'albumentations' - package isn't installed")
+try:
+    from efficientnet_pytorch import EfficientNet
+except:
+    import warnings
+    warnings.warn("'efficientnet_pytorch' - package isn't installed")
+
 from joblib import Parallel, delayed
 from sklearn.base import TransformerMixin
 from torch.utils.data import DataLoader

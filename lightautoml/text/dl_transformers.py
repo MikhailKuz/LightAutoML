@@ -9,7 +9,12 @@ import torch.nn as nn
 from sklearn.base import TransformerMixin
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoModel
+try:
+    from transformers import AutoModel
+except:
+    import warnings
+    warnings.warn("'transformers' - package isn't installed")
+
 from copy import deepcopy
 
 from .dp_utils import CustomDataParallel
@@ -37,7 +42,7 @@ class DLTransformer(TransformerMixin):
         self.loader_params = deepcopy(self._loader_params)
         self.dataset_params = deepcopy(self._dataset_params)
         self.embedding_model_params = deepcopy(self._embedding_model_params)
-             
+
     def __init__(self, model, model_params: Dict, dataset, dataset_params: Dict, loader_params: Dict,
                  device: str = 'cuda', random_state: int = 42,
                  embedding_model: Optional = None, embedding_model_params: Dict[str, Dict] = None,

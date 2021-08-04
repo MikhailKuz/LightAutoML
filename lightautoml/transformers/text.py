@@ -6,7 +6,12 @@ import pickle
 from copy import deepcopy, copy
 from typing import Optional, Union, List, Dict, Any
 
-import gensim
+try:
+    import gensim
+except:
+    import warnings
+    warnings.warn("'gensim' - package isn't installed")
+
 import numpy as np
 import pandas as pd
 import torch
@@ -603,7 +608,7 @@ class AutoNLPWrap(LAMLTransformer):
         else:
 
             self.train_fasttext = (self.model_name in self._trainable)
-        
+
         if self.model_name == 'wat':
             self.transformer = WeightedAverageTransformer
         else:
@@ -618,7 +623,7 @@ class AutoNLPWrap(LAMLTransformer):
             if 'model_params' in self.transformer_params:
                 self.transformer_params['model_params']['model_name'] = bert_model
         return self
-    
+
     def _update_transformers_emb_model(self,
                                        params: Dict,
                                        model: Any,
@@ -631,7 +636,7 @@ class AutoNLPWrap(LAMLTransformer):
             except:
                 try:
                     # Gensim checker[2]
-                    emb_size = model.vw.vector_size                    
+                    emb_size = model.vw.vector_size
                 except:
                     try:
                         # Natasha checker
@@ -753,9 +758,9 @@ class AutoNLPWrap(LAMLTransformer):
         dataset = dataset.empty().to_numpy().concat(outputs)
         # instance-wise sentence embedding normalization
         dataset.data = dataset.data / self._sentence_norm(dataset.data, self.sent_scaler)
-        
+
         return dataset
-    
+
     @staticmethod
     def _sentence_norm(x: np.ndarray,
                        mode: Optional[str] = None

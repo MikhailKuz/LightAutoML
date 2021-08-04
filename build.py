@@ -125,13 +125,13 @@ class LAMAController:
             '-i', '--install', action='store_true', help="Install core part of LAMA (excluding: nlp, cv, dev dependencies"
         )
         self._parser.add_argument(
-            '-e', '--extra', default=[], action='append', help="Extra dependencies"
+            '-e', '--extra', default=[], action='append', help="Extra dependencies: nlp, cv, all (nlp + cv), full (nlp + cv + dev)"
         )
         self._parser.add_argument(
             '-b', '--dist', action='store_true', help='Build the source and wheels archives'
         )
         self._parser.add_argument(
-            '-d', '--docs', action='store_true', help='Build and check docs'
+            '-d', '--docs', action='store_true', help='Build and check docs (need `dev`-deps)'
         )
         self._parser.add_argument(
             '-t', '--test', action='store_true', help='Run tests'

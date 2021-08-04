@@ -5,8 +5,13 @@ from functools import partial
 from multiprocessing import Pool
 from typing import Sequence, Union, List, Optional, Any
 
-import nltk
-from nltk.stem import SnowballStemmer
+try:
+    import nltk
+    from nltk.stem import SnowballStemmer
+except:
+    import warnings
+    warnings.warn("'nltk' - package isn't installed")
+
 
 from .abbreviations import ABBREVIATIONS
 from ..dataset.base import RolesDict

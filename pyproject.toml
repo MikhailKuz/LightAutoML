@@ -36,8 +36,8 @@ lightgbm = "^2.3"
 catboost = "*"
 optuna = "*"
 torch = [
-    {version = "~1.7",  markers = "python_version <  '3.6.2'"},
-    {version = ">= 1.7, <1.9", markers = "python_version >= '3.6.2'"}
+    {version = "~1.7", python = '<3.6.2'},
+    {version = ">=1.7,<1.9", python = '^3.6.2'}
 ]
 holidays = "*"
 networkx = "*"
@@ -63,7 +63,7 @@ transformers = {version = ">=4", optional = true}
 albumentations = {version = ">=0.4.6", optional = true}
 efficientnet-pytorch = {version = "*", optional = true}
 opencv-python = {version = "*", optional = true}
-pywavelets = {version = "*", optional = true}
+PyWavelets = {version = "*", optional = true}
 scikit-image = {version = "*", optional = true}
 torchvision = {version = "*", optional = true}
 
@@ -90,7 +90,7 @@ cv = [
     "albumentations",
     "efficientnet-pytorch",
     "opencv-python",
-    "pywavelets",
+    "PyWavelets",
     "scikit-image",
     "torchvision"
 ]
@@ -107,7 +107,7 @@ all = [
     "albumentations",
     "efficientnet-pytorch",
     "opencv-python",
-    "pywavelets",
+    "PyWavelets",
     "scikit-image",
     "torchvision",
     "gensim",

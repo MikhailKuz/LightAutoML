@@ -1,7 +1,7 @@
 """AutoML presets for data with texts."""
 
 from lightautoml.utils.installation import __validate_extra_deps
-__validate_extra_deps('nlp')
+__validate_extra_deps('nlp', error=True)
 
 
 import os
