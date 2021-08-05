@@ -12,10 +12,15 @@ TShellCmd = str
 class LAMAController:
     """Class that provide installation of lama."""
     LAMA_VENV = './lama_venv'
-    EXTRA_SECTIONS = ('nlp', 'cv')
+    EXTRA_SECTIONS = ('nlp', 'cv', 'pdf')
     EXTRA_FLAGS = (*('full', 'dev', 'all'), *EXTRA_SECTIONS)
 
     def __init__(self, debug: bool = False):
+        """
+        Args:
+            debug: If True only print commands, not execute
+
+        """
         self._debug = debug
         self._create_parser()
         self._args = self._parser.parse_args()
@@ -39,6 +44,7 @@ class LAMAController:
                 subprocess.call(section_code, shell=True, executable='bash')
 
     def _validate_extras(self):
+        """Validate that extras from avaible values."""
         for e in self._args.extra:
             if not e in self.EXTRA_FLAGS:
                 raise RuntimeError("Wrong extra flag '{}'".format(e))
@@ -74,6 +80,13 @@ class LAMAController:
 
     @property
     def poetry_install_flags(self) -> str:
+        """Prepare poetry install flags.
+
+        Returns:
+            install_flags: String of extra flags which will be transfer to command:
+                `peotry install {INSTALL_FLAGS}`
+
+        """
         install_flags = []
         need_dev_deps = 'dev' in self._args.extra or self._args.docs
 
@@ -125,7 +138,7 @@ class LAMAController:
             '-i', '--install', action='store_true', help="Install core part of LAMA (excluding: nlp, cv, dev dependencies"
         )
         self._parser.add_argument(
-            '-e', '--extra', default=[], action='append', help="Extra dependencies: nlp, cv, all (nlp + cv), full (nlp + cv + dev)"
+            '-e', '--extra', default=[], action='append', help="Extra dependencies: nlp, cv, pdf, all (nlp + cv), full (nlp + cv + dev)"
         )
         self._parser.add_argument(
             '-b', '--dist', action='store_true', help='Build the source and wheels archives'

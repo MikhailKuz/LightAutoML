@@ -34,25 +34,35 @@ See the [Documentation of LightAutoML](https://lightautoml.readthedocs.io/).
 *******
 # Installation
 ### Installation via pip from PyPI
-To install LAMA framework on your machine:
+
+Don't forget to update pip:
+
 ```bash
-pip install -U lightautoml
+pip3 install -U pip
+```
+
+To install LAMA framework on your machine with core(tabular)-part:
+
+```bash
+pip3 install -U lightautoml
 ```
 
 For installation NLP/CV part run:
 
 ```bash
-pip install lightautoml[EXTRA_PART]  # where EXTRA_PART := {nlp, cv, all}
+pip3 install lightautoml[EXTRA_PART]  # where EXTRA_PART := {all, cv, nlp, pdf}
 ```
 
 
 ### Installation from sources with virtual environment creation
-If you want to create a specific virtual environment for LAMA, you need to install  `python3-venv` system package and run the following command, which creates `lama_venv` virtual env with LAMA inside:
+If you want to create a specific virtual environment for LAMA, you need to install  `python3-venv` system package and run the following command, which creates `lama_venv` virtual env with LAMA inside (extra and developer dependencies):
+
 ```bash
 ./build.py -i -e full
 ```
 
 For more information:
+
 ```bash
 ./build.py --help
 ```
@@ -84,7 +94,7 @@ poetry install -E pdf
 ./build.py --docs
 
 # if not built LAMA
-./build_.sh --install -e dev --docs
+./build.py --install -e dev --docs
 
 ```
 
@@ -97,6 +107,8 @@ To find out how to work with LightAutoML, we have several tutorials:
 2. `Tutorial_2. AutoML pipeline preset.ipynb` [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sberbank-ai-lab/LightAutoML/blob/master/Tutorial_2.%20AutoML%20pipeline%20preset.ipynb) - shows how to use LightAutoML presets (both standalone and time utilized variants) for solving ML tasks on tabular data. Using presets you can solve binary classification, multiclass classification and regression tasks, changing the first argument in Task.
 3. `Tutorial_3. Multiclass task.ipynb` [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sberbank-ai-lab/LightAutoML/blob/master/Tutorial_3.%20Multiclass%20task.ipynb) - shows how to build ML pipeline for multiclass ML task by hand
 4. `Tutorial_4. SQL data source for pipeline preset.ipynb` [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sberbank-ai-lab/LightAutoML/blob/master/Tutorial_4.%20SQL%20data%20source%20for%20pipeline%20preset.ipynb) - shows how to use LightAutoML presets (both standalone and time utilized variants) for solving ML tasks on tabular data from SQL data base instead of CSV.
+5. `Tutorial_5. NLP Interpretation.ipynb` [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sberbank-ai-lab/LightAutoML/blob/master/Tutorial_5.%20NLP%20Interpretation.ipynb) - shows how to use interpretation addons
+
 
 Each tutorial has the step to enable Profiler and completes with Profiler run, which generates distribution for each function call time and shows it in interactive HTML report: the report show full time of run on its top and interactive tree of calls with percent of total time spent by the specific subtree.
 
