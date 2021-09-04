@@ -2,7 +2,7 @@
 
 from typing import Tuple, Optional
 
-
+from lightautoml.pipelines.utils import get_columns_by_role
 from .base import MLAlgo
 from .tuning.base import ParamsTuner
 from ..dataset.base import LAMLDataset

@@ -188,7 +188,9 @@ class OptunaTuner(ParamsTuner):
 
             # need to update best params here
             self._best_params = self.study.best_params
-            ml_algo.params = self._best_params
+            default_input_params = ml_algo.init_params_on_input(train_valid_iterator)
+            ml_algo.params = {**default_input_params, **ml_algo.params, **self._best_params}
+            self._best_params = ml_algo.params
 
             if flg_new_iterator:
                 # if tuner was fitted on holdout set we dont need to save train results

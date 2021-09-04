@@ -4,11 +4,16 @@ import gc
 import os
 import uuid
 from copy import copy
+from typing import Dict
 
 import numpy as np
 import torch
+import torch.nn as nn
+from optuna import Trial
 from torch.optim import lr_scheduler
 from transformers import AutoTokenizer
+from .nn_models import DenseBaseModel, DenseModel, ResNetModel
+from .tuning.optuna import OptunaTunableMixin
 
 from ..ml_algo.base import TabularMLAlgo, TabularDataset
 from ..pipelines.features.text_pipeline import _model_name_by_lang
@@ -18,10 +23,14 @@ from ..text.trainer import Trainer
 from ..text.utils import seed_everything, parse_devices, collate_dict, is_shuffle, inv_softmax, inv_sigmoid
 from ..utils.logging import get_logger
 
+from ..ml_algo.torch_based.act_funcs import TS
+
 logger = get_logger(__name__)
 
+model_by_name = {'dense_fix': DenseBaseModel, 'dense_mod': DenseModel, 'resnet': ResNetModel}
 
-class TorchModel(TabularMLAlgo):
+
+class TorchModel(OptunaTunableMixin, TabularMLAlgo):
     """Neural net for tabular datasets.
 
     default_params:
@@ -69,7 +78,8 @@ class TorchModel(TabularMLAlgo):
         'bs': 16,
         'num_workers': 4,
         'max_length': 256,
-        'opt_params': {'lr': 1e-4, },
+        'opt': torch.optim.Adam,
+        'opt_params': {'lr': 1e-4},
         'scheduler_params': {'patience': 5, 'factor': 0.5, 'verbose': True},
         'is_snap': False,
         'snap_params': {'k': 1, 'early_stopping': True, 'patience': 1, 'swa': False},
@@ -78,7 +88,7 @@ class TorchModel(TabularMLAlgo):
         'input_bn': False,
         'emb_dropout': 0.1,
         'emb_ratio': 3,
-        'max_emb_size': 50,
+        'max_emb_size': 256,
         'bert_name': None,
         'pooling': 'cls',
         'device': [0],
@@ -89,7 +99,8 @@ class TorchModel(TabularMLAlgo):
         'deterministic': True,
         'multigpu': False,
         'random_state': 42,
-
+        'efficient': False,
+        'model': 'dense_fix',
         'path_to_save': os.path.join('./models/', 'model'),
         'verbose_inside': None,
         'verbose': 1,
@@ -116,7 +127,7 @@ class TorchModel(TabularMLAlgo):
 
         model = Trainer(
             net=TorchUniversalModel,
-            net_params={
+            net_params={**params, **{
                 'loss': params['loss'],
                 'task': self.task,
                 'n_out': params['n_out'],
@@ -131,8 +142,9 @@ class TorchModel(TabularMLAlgo):
                 'text_params': {'model_name': params['bert_name'],
                                 'pooling': params['pooling']} if is_text else None,
                 'bias': params['bias'],
-            },
-            opt=torch.optim.Adam,
+                'torch_model': model_by_name[params["model"]],
+            }},
+            opt=params['opt'],
             opt_params=params['opt_params'],
             n_epochs=params['n_epochs'],
             device=params['device'],
@@ -190,7 +202,7 @@ class TorchModel(TabularMLAlgo):
         cat_dims = []
         suggested_params['cat_features'] = get_columns_by_role(train_valid_iterator.train, 'Category')
         for cat_feature in suggested_params['cat_features']:
-            num_unique_categories = max(train_valid_iterator.train[:, cat_feature].data) + 1
+            num_unique_categories = max(train_valid_iterator.train[:, cat_feature].data)
             cat_dims.append(num_unique_categories)
         suggested_params['cat_dims'] = cat_dims
 
@@ -251,11 +263,15 @@ class TorchModel(TabularMLAlgo):
 
         """
         seed_everything(self.params['random_state'], self.params['deterministic'])
+        task_name = train.task.name
+        target = train.target
+        self.params['bias'] = self.get_mean_target(target, task_name) if self.params['init_bias'] else None
         model = self._infer_params()
 
-        model_path = os.path.join(self.path_to_save, f'{uuid.uuid4()}.pickle') if self.path_to_save is not None else None
+        model_path = os.path.join(self.path_to_save,
+                                  f'{uuid.uuid4()}.pickle') if self.path_to_save is not None else None
         # init datasets
-        dataloaders = self.get_dataloaders_from_dicts({'train': train, 'val': valid})
+        dataloaders = self.get_dataloaders_from_dicts({'train': train.to_pandas(), 'val': valid.to_pandas()})
 
         val_pred = model.fit(dataloaders)
 
@@ -283,7 +299,7 @@ class TorchModel(TabularMLAlgo):
         """
 
         seed_everything(self.params['random_state'], self.params['deterministic'])
-        dataloaders = self.get_dataloaders_from_dicts({'test': dataset})
+        dataloaders = self.get_dataloaders_from_dicts({'test': dataset.to_pandas()})
 
         if isinstance(model, (str, dict)):
             model = self._infer_params().load_state(model)
@@ -296,3 +312,206 @@ class TorchModel(TabularMLAlgo):
         torch.cuda.empty_cache()
 
         return pred
+
+    def sample_params_values(self, trial: Trial, suggested_params: Dict, estimated_n_trials: int) -> Dict:
+        """Sample hyperparameters from suggested.
+
+        Args:
+            trial: Optuna trial object.
+            suggested_params: Dict with parameters.
+            estimated_n_trials: Maximum number of hyperparameter estimations.
+
+        Returns:
+            dict with sampled hyperparameters.
+
+        """
+        logger.debug('Suggested parameters:')
+        logger.debug(suggested_params)
+
+        trial_values = copy(suggested_params)
+
+        if 'is_cat' in self.params and self.params['is_cat'] and\
+                len(self.params['cat_dims']) > 0:
+            trial_values['emb_dropout'] = trial.suggest_uniform(
+                'emb_dropout',
+                low=0,
+                high=0.2)
+            trial_values['emb_ratio'] = trial.suggest_int(
+                'emb_ratio',
+                low=2,
+                high=6)
+
+        opt_params = {'lr': trial.suggest_loguniform(
+            'lr',
+            low=1e-5,
+            high=1e-2
+        ), 'weight_decay': trial.suggest_loguniform(
+            'weight_decay',
+            low=1e-4,
+            high=1e-2
+        )}
+        trial_values['opt_params'] = opt_params
+
+        trial_values['opt'] = trial.suggest_categorical(
+            'opt',
+            [torch.optim.Adam, torch.optim.AdamW]
+        )
+
+        trial_values['act_fun'] = trial.suggest_categorical(
+            'act_fun',
+            [nn.ReLU, TS]
+        )
+
+        trial_values['init_bias'] = trial.suggest_categorical(
+            'init_bias',
+            [True, False]
+        )
+
+        if self.params['model'] == 'dense_fix':
+            trial_values['num_layers'] = trial.suggest_int(
+                'num_layers',
+                low=1,
+                high=16
+            )
+
+            hidden_size = ()
+            drop_rate = ()
+            hid_high = 1024
+
+            if trial_values['num_layers'] > 5:
+                hid_high = 512
+
+            for layer in range(trial_values['num_layers']):
+                hidden_name = 'hidden_size_' + str(layer)
+                drop_name = 'drop_rate_' + str(layer)
+
+                trial_values[hidden_name] = trial.suggest_int(
+                    hidden_name,
+                    low=1,
+                    high=hid_high
+                )
+                trial_values[drop_name] = trial.suggest_uniform(
+                    drop_name,
+                    low=0.0,
+                    high=0.5
+                )
+
+                hidden_size = hidden_size + (trial_values[hidden_name],)
+                drop_rate = drop_rate + (trial_values[drop_name],)
+
+            trial_values['hidden_size'] = hidden_size
+            trial_values['drop_rate'] = drop_rate
+
+            trial_values['noise_std'] = trial.suggest_loguniform(
+                'noise_std',
+                low=1e-5,
+                high=1e-2
+            )
+
+        elif self.params['model'] == 'dense_mod':
+            trial_values['num_blocks'] = trial.suggest_int(
+                'num_blocks',
+                low=1,
+                high=8
+            )
+
+            block_config = ()
+            drop_rate = ()
+
+            for block in range(trial_values['num_blocks']):
+                block_name = 'block_size_' + str(block)
+                drop_name = 'drop_rate_' + str(block)
+
+                trial_values[block_name] = trial.suggest_int(
+                    block_name,
+                    low=1,
+                    high=8
+                )
+                trial_values[drop_name] = trial.suggest_uniform(
+                    drop_name,
+                    low=0.0,
+                    high=0.5
+                )
+
+                block_config = block_config + (trial_values[block_name],)
+                drop_rate = drop_rate + (trial_values[drop_name],)
+
+            trial_values['block_config'] = block_config
+            trial_values['drop_rate'] = drop_rate
+
+            trial_values['num_init_features'] = trial.suggest_int(
+                'num_init_features',
+                low=1,
+                high=1024
+            )
+
+            trial_values['compression'] = trial.suggest_uniform(
+                'compression',
+                low=0.0,
+                high=0.9
+            )
+
+            gr_high = 64
+            bn_size = 32
+            if trial_values['num_blocks'] > 4:
+                gr_high = 32
+                bn_size = 16
+
+            trial_values['growth_rate'] = trial.suggest_int(
+                'growth_rate',
+                low=8,
+                high=gr_high
+            )
+
+            trial_values['bn_size'] = trial.suggest_int(
+                'bn_size',
+                low=2,
+                high=bn_size
+            )
+
+        elif self.params['model'] == 'resnet':
+            trial_values['num_layers'] = trial.suggest_int(
+                'num_layers',
+                low=1,
+                high=16
+            )
+
+            hidden_size = ()
+            drop_rate = ()
+            hid_high = 1024
+
+            if trial_values['num_layers'] > 5:
+                hid_high = 512
+
+            for layer in range(trial_values['num_layers']):
+                hidden_name = 'hidden_size_' + str(layer)
+                drop_name = 'drop_rate_' + str(layer)
+
+                trial_values[hidden_name] = trial.suggest_int(
+                    hidden_name,
+                    low=1,
+                    high=hid_high
+                )
+                trial_values[drop_name + '_1'] = trial.suggest_uniform(
+                    drop_name,
+                    low=0.0,
+                    high=0.5
+                )
+                trial_values[drop_name + '_2'] = trial.suggest_uniform(
+                    drop_name,
+                    low=0.0,
+                    high=0.5
+                )
+
+                hidden_size = hidden_size + (trial_values[hidden_name],)
+                drop_rate = drop_rate + ((trial_values[drop_name + '_1'], trial_values[drop_name + '_2']),)
+
+            trial_values['hidden_size'] = hidden_size
+            trial_values['drop_rate'] = drop_rate
+
+            trial_values['noise_std'] = trial.suggest_loguniform(
+                'noise_std',
+                low=1e-5,
+                high=1e-2
+            )
+        return trial_values

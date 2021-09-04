@@ -280,8 +280,8 @@ class Trainer:
         self.opt = opt
         self.opt_params = opt_params
         self.n_epochs = n_epochs
-        self.device = device
-        self.device_ids = device_ids
+        self.device = device#torch.device('cpu')
+        self.device_ids = device_ids#None
         self.is_snap = is_snap
         self.snap_params = snap_params
         self.sch = sch
@@ -489,6 +489,7 @@ class Trainer:
                     scaled_loss.backward()
             else:
                 loss.backward()
+            nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             self.optimizer.step()
             self.optimizer.zero_grad()
             loss = loss.data.cpu().numpy()
