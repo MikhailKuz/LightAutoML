@@ -6,6 +6,8 @@ import torch.nn.functional as F
 import torch.utils.checkpoint as cp
 import math
 
+from lightautoml.ml_algo.torch_based.act_funcs import TS
+
 
 class GaussianNoise(nn.Module):
     def __init__(self, stddev, device):
@@ -84,7 +86,7 @@ class DenseBaseModel(nn.Module):
 
 
 class DenseModel(nn.Module):
-    def __init__(self, n_in, n_out=1, block_config=(2,), drop_rate=(0.1,), num_init_features=512,
+    def __init__(self, n_in, n_out=1, block_config=(2, 2), drop_rate=(0.1, 0.1), num_init_features=512,
                  compression=0.5, growth_rate=16, bn_size=4, bias=None, act_fun=nn.ReLU,
                  efficient=False, **kwargs):
 
@@ -126,17 +128,6 @@ class DenseModel(nn.Module):
             self.fc.bias.data = bias
             self.fc.weight.data = torch.Variable(torch.zeros(n_out, num_features + n_in))
 
-        for name, param in self.named_parameters():
-            if 'dense' in name and 'weight' in name:
-                n = param.size(0)
-                param.data.normal_().mul_(math.sqrt(2. / n))
-            elif 'norm' in name and 'weight' in name:
-                param.data.fill_(1)
-            elif 'norm' in name and 'bias' in name:
-                param.data.fill_(0)
-            elif 'fc' in name and 'bias' in name:
-                param.data.fill_(0)
-
     def forward(self, x):
         features = self.features(x)
         out = F.relu(features, inplace=True)
@@ -172,6 +163,7 @@ class DenseModel(nn.Module):
             else:
                 bottleneck_output = bn_function(*prev_features)
             new_features = self.dense2(self.act2(self.norm2(bottleneck_output)))
+
             if self.drop_rate > 0:
                 new_features = F.dropout(new_features, p=self.drop_rate, training=self.training)
             return new_features
@@ -206,15 +198,15 @@ class DenseModel(nn.Module):
 
 
 class ResNetModel(nn.Module):
-    def __init__(self, n_in, n_out=1, hidden_size=(512, 1024, 512), drop_rate=((0.1, 0.1), (0.1, 0.1), (0.1, 0.1)),
+    def __init__(self, n_in, n_out=1, hidden_factor=(5, 5, 5), drop_rate=((0.1, 0.1), (0.1, 0.1), (0.1, 0.1)),
                  bias=None, noise_std=0.05, act_fun=nn.ReLU, **kwargs):
         super(ResNetModel, self).__init__()
 
         self.features = nn.Sequential(OrderedDict([]))
-        for i, hid_size in enumerate(hidden_size):
+        for i, hid_factor in enumerate(hidden_factor):
             block = ResNetModel._ResNetBlock(
                 n_in=n_in,
-                hidden_size=hid_size,
+                hidden_factor=hid_factor,
                 n_out=n_in,
                 drop_rate=drop_rate[i],
                 noise_std=noise_std,
@@ -231,16 +223,16 @@ class ResNetModel(nn.Module):
             self.fc.weight.data = torch.Variable(torch.zeros(n_out, int(hidden_size[-1]) + n_in))
 
     class _ResNetBlock(nn.Module):
-        def __init__(self, n_in, hidden_size, n_out, drop_rate, noise_std, act_fun):
+        def __init__(self, n_in, hidden_factor, n_out, drop_rate, noise_std, act_fun):
             super(ResNetModel._ResNetBlock, self).__init__()
             self.norm = nn.BatchNorm1d(n_in)
             self.act1 = act_fun()
             self.drop1 = nn.Dropout(p=drop_rate[0])
             self.noise = GaussianNoise(noise_std, torch.device('cuda:0'))
-            self.dense1 = nn.Linear(n_in, hidden_size)
+            self.dense1 = nn.Linear(n_in, int(n_in * hidden_factor))
             self.act2 = act_fun()
             self.drop2 = nn.Dropout(p=drop_rate[1])
-            self.dense2 = nn.Linear(hidden_size, n_out)
+            self.dense2 = nn.Linear(int(n_in * hidden_factor), n_out)
 
         def forward(self, x):
             x = self.noise(self.drop1(self.act1(self.norm(x))))

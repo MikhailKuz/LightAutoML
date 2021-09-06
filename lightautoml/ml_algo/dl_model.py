@@ -27,7 +27,7 @@ from ..ml_algo.torch_based.act_funcs import TS
 
 logger = get_logger(__name__)
 
-model_by_name = {'dense_fix': DenseBaseModel, 'dense_mod': DenseModel, 'resnet': ResNetModel}
+model_by_name = {'dense_light': DenseBaseModel, 'dense': DenseModel, 'resnet': ResNetModel}
 
 
 class TorchModel(OptunaTunableMixin, TabularMLAlgo):
@@ -91,7 +91,7 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
         'max_emb_size': 256,
         'bert_name': None,
         'pooling': 'cls',
-        'device': [0],
+        'device': torch.device('cuda:0'),
         'use_cont': True,
         'use_cat': True,
         'use_text': True,
@@ -100,13 +100,14 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
         'multigpu': False,
         'random_state': 42,
         'efficient': False,
-        'model': 'dense_fix',
+        'model': 'dense_light',
         'path_to_save': os.path.join('./models/', 'model'),
         'verbose_inside': None,
         'verbose': 1,
     }
 
     def _infer_params(self):
+        # assert False
         if self.params['path_to_save'] is not None:
             self.path_to_save = os.path.relpath(self.params['path_to_save'])
             if not os.path.exists(self.path_to_save):
@@ -330,6 +331,11 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
 
         trial_values = copy(suggested_params)
 
+        trial_values['model'] = trial.suggest_categorical(
+            'model',
+            ['dense_light', 'dense', 'resnet']
+        )
+
         if 'is_cat' in self.params and self.params['is_cat'] and\
                 len(self.params['cat_dims']) > 0:
             trial_values['emb_dropout'] = trial.suggest_uniform(
@@ -367,18 +373,18 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
             [True, False]
         )
 
-        if self.params['model'] == 'dense_fix':
+        if trial_values['model'] == 'dense_light':
             trial_values['num_layers'] = trial.suggest_int(
                 'num_layers',
                 low=1,
-                high=16
+                high=8
             )
 
             hidden_size = ()
             drop_rate = ()
             hid_high = 1024
 
-            if trial_values['num_layers'] > 5:
+            if trial_values['num_layers'] > 4:
                 hid_high = 512
 
             for layer in range(trial_values['num_layers']):
@@ -408,7 +414,7 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
                 high=1e-2
             )
 
-        elif self.params['model'] == 'dense_mod':
+        elif trial_values['model'] == 'dense':
             trial_values['num_blocks'] = trial.suggest_int(
                 'num_blocks',
                 low=1,
@@ -418,6 +424,11 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
             block_config = ()
             drop_rate = ()
 
+            block_high = 8
+
+            if trial_values['num_blocks'] > 4:
+                block_high = 4
+
             for block in range(trial_values['num_blocks']):
                 block_name = 'block_size_' + str(block)
                 drop_name = 'drop_rate_' + str(block)
@@ -425,7 +436,7 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
                 trial_values[block_name] = trial.suggest_int(
                     block_name,
                     low=1,
-                    high=8
+                    high=block_high
                 )
                 trial_values[drop_name] = trial.suggest_uniform(
                     drop_name,
@@ -469,27 +480,27 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
                 high=bn_size
             )
 
-        elif self.params['model'] == 'resnet':
+        elif trial_values['model'] == 'resnet':
             trial_values['num_layers'] = trial.suggest_int(
                 'num_layers',
                 low=1,
                 high=16
             )
 
-            hidden_size = ()
+            hidden_factor = ()
             drop_rate = ()
-            hid_high = 1024
+            hid_high = 40
 
             if trial_values['num_layers'] > 5:
-                hid_high = 512
+                hid_high = 20
 
             for layer in range(trial_values['num_layers']):
-                hidden_name = 'hidden_size_' + str(layer)
+                hidden_name = 'hidden_factor_' + str(layer)
                 drop_name = 'drop_rate_' + str(layer)
 
-                trial_values[hidden_name] = trial.suggest_int(
+                trial_values[hidden_name] = trial.suggest_uniform(
                     hidden_name,
-                    low=1,
+                    low=1.0,
                     high=hid_high
                 )
                 trial_values[drop_name + '_1'] = trial.suggest_uniform(
@@ -503,10 +514,10 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
                     high=0.5
                 )
 
-                hidden_size = hidden_size + (trial_values[hidden_name],)
+                hidden_factor = hidden_factor + (trial_values[hidden_name],)
                 drop_rate = drop_rate + ((trial_values[drop_name + '_1'], trial_values[drop_name + '_2']),)
 
-            trial_values['hidden_size'] = hidden_size
+            trial_values['hidden_factor'] = hidden_factor
             trial_values['drop_rate'] = drop_rate
 
             trial_values['noise_std'] = trial.suggest_loguniform(
@@ -514,4 +525,5 @@ class TorchModel(OptunaTunableMixin, TabularMLAlgo):
                 low=1e-5,
                 high=1e-2
             )
+
         return trial_values
